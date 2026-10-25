@@ -37,9 +37,9 @@ actually carry out the re-ranking step.
    rescaled by (original size / resized size) before drawing on the original.
 3. **Config matters.** The same question gave different answers under
    float32+offload and 4-bit (21 vs 15), so all reported numbers use 4-bit.
-4. **My first answer parser missed "最终答案是17"-style outputs** and scored
+4. **My first answer parser missed outputs like "The final answer is 17"** (the model wrote it in Chinese as `最终答案是17`) and scored
    them as failures. Fixed by loosening the regex and re-scoring all outputs.
-
+   
 ## Limitations
 - Only 9 questions of a single task type; conclusions do not generalize to
   "reasoning" in general.
