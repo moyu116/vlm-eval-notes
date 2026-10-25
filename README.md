@@ -16,12 +16,12 @@ offloading computation to code fixes its reasoning failures.
 | Read table + answer a question whose answer is printed on the slide | Correct |
 | Multi-step reasoning (re-rank and re-score after removing a candidate) | Wrong: copied original totals instead of re-ranking |
 | Same question with step-by-step prompting | Cleaner output, still wrong: same judge gave equal scores to several songs; totals contradicted earlier steps |
-| Text grounding (bounding box of a title) | Right region, imprecise box (covered ~60% of the text width) |
+| Text grounding (bounding box of a title) | Right region, imprecise box (covered only the first part of the title) |
 | **VLM reads table → Python computes** | **Correct** (A=13, C=18, D=11) |
 
 ## Key takeaways
 1. **Precision matters for speed.** `bfloat16` on a T4 hung for 8+ minutes
-   (no native support, software emulation); `float32` finished in ~12 s.
+   (likely due to lack of native bf16 support on T4); `float32` finished in ~12 s.
 2. **Reading ≠ reasoning.** The 3B model reads tables reliably but fails at
    multi-step symbolic reasoning, and prompt engineering did not fix it.
 3. **Tool use helps.** Letting the model only extract data and delegating
