@@ -1,7 +1,6 @@
 # vlm-eval-notes
 
-Evaluating Qwen2.5-VL-3B on table-reading and multi-step reasoning, and testing
-whether offloading computation to code fixes its failures.
+Evaluating Qwen2.5-VL-3B on table reading and multi-step reasoning: pure VLM (0/9) vs VLM + Python tool (9/9)
 
 ## Setup
 - Model: Qwen/Qwen2.5-VL-3B-Instruct (Hugging Face Transformers), 4-bit NF4 (bitsandbytes)
