@@ -10,9 +10,10 @@ Evaluating Qwen2.5-VL-3B on table reading and multi-step reasoning: pure VLM (0/
   (4-5 songs, 5-7 judges) and scores; ground truth computed by code, greedy decoding
 - Notebook: `qwen25vl_eval.ipynb`, raw outputs: `results.json`
 - Section 3 of the notebook is a separate qualitative demo on a lecture-slide
-  screenshot (`screenshot1.png`): reading numbers and grounding a bounding box.
-  It is not part of the 8-question score.
-
+  screenshot (`screenshot1.png`, not included because it is course material):
+  reading numbers and grounding a bounding box. It is not part of the 8-question
+  score and is skipped automatically if the file is missing.
+  
 ## Results
 
 | Method | Correct |
