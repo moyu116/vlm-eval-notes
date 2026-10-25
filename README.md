@@ -1,12 +1,12 @@
 # vlm-eval-notes
 
-Evaluating Qwen2.5-VL-3B on table reading and multi-step reasoning: pure VLM (0/9) vs VLM + Python tool (9/9)
+Evaluating Qwen2.5-VL-3B on table reading and multi-step reasoning: pure VLM (0/8) vs VLM + Python tool (8/8)
 
 ## Setup
 - Model: Qwen/Qwen2.5-VL-3B-Instruct (Hugging Face Transformers), 4-bit NF4 (bitsandbytes)
 - Hardware: Google Colab free T4 GPU (15 GB)
 - Task: "remove one song, re-rank the rest per judge, then sum the scores"
-- Test set: 9 questions (1 lecture slide + 8 synthetic tables with randomized
+- Test set: 8 questions (1 lecture slide + 7 synthetic tables with randomized
   sizes and scores; ground truth computed by code), greedy decoding
 - Notebook: `qwen25vl_eval.ipynb`, raw outputs: `results.json`
 
@@ -14,19 +14,14 @@ Evaluating Qwen2.5-VL-3B on table reading and multi-step reasoning: pure VLM (0/
 
 | Method | Correct |
 |---|---|
-| Pure VLM (reads image and reasons, chain-of-thought prompt) | 0 / 9 |
-| VLM reads table to JSON, Python does the ranking and summing | 9 / 9 |
+| Pure VLM (reads image and reasons, chain-of-thought prompt) | 0 / 8 |
+| VLM reads table to JSON, Python does the ranking and summing | 8 / 8 |
 
-## Failure analysis (pure VLM)
-| Pattern | Questions |
-|---|---|
-| Answer exceeds the mathematical upper bound (invented formulas / numbers) | 5 / 9 |
-| Skips re-ranking and reports an original total instead | 2 / 9 |
-| Computes the wrong song | 1 / 9 |
-| Arithmetic and re-scoring becomes inconsistent mid-way | 1 / 9 |
-
-In every pure-VLM trace the model could copy the table correctly but did not
-actually carry out the re-ranking step.
+| Failure type | Questions | Evidence |
+|---|---|---|
+| Impossible answer (exceeds the maximum achievable total) | Q2, Q5, Q6, Q8 | 171 (max 20), 27 (max 24), 191 (max 28), 51 (max 21) |
+| Skipped re-ranking, reported raw totals from the original table | Q1, Q3, Q7 | Q1 = A's original total; Q3 = A/E's original total; Q7 = the removed song B's own total |
+| Invented an inconsistent re-ranking | Q4 | 12 matches no original total and cannot be derived from the table |
 
 ## Engineering notes
 1. **float32 did not fit on a T4.** The 3B model needs about 13 GB in float32;
@@ -41,9 +36,9 @@ actually carry out the re-ranking step.
    them as failures. Fixed by loosening the regex and re-scoring all outputs.
    
 ## Limitations
-- Only 9 questions of a single task type; conclusions do not generalize to
+- Only 8 questions of a single task type; conclusions do not generalize to
   "reasoning" in general.
-- The 9/9 comes from a hand-written solver plus VLM extraction. It shows the
+- The 8/8 comes from a hand-written solver plus VLM extraction. It shows the
   VLM reads these tables reliably, not that tool use makes the model smarter.
 - Only one 3B model at one quantization level was tested; a larger model might
   close the gap without tools.
