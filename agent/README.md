@@ -29,27 +29,35 @@ question + image path
 
 ## Results
 
-All numbers are single runs. The DeepSeek calls are sampled, so individual outcomes can change between runs; Qwen is greedy and deterministic.
+The whole notebook was run twice (a second time from a fresh Colab session). Qwen is greedy and gave identical outputs both times, so every Qwen-only
+result (fixed workflow, reader diagnostic, multi-view experiment) reproduced exactly. DeepSeek calls are sampled, so agent results moved by 0-1 questions between runs;
+both runs are reported where they differ.
 
 ### Clean images (8 tables)
 
 | Method | Correct |
 |---|---|
 | Pure VLM, no tools (root README) | 0 / 8 |
-| Agent loop (DeepSeek + Qwen reader + solver) | 8 / 8 |
+| Fixed workflow: read once, compute | 8 / 8 (both runs) |
+| Agent loop (DeepSeek + Qwen reader + solver) | 8 / 8 (run 1), 7 / 8 (run 2) |
+
+In run 2 the agent got Q7 wrong (11) while the fixed workflow, with the same Qwen read, got it right (14). I suspect DeepSeek mis-copied the table
+when passing it to `compute_totals`, but I have not verified this yet (see Next steps).
 
 Agent cost: about 0.0009 USD per question (about 2,700 input and 770 output tokens on average; 0.0069 USD for all 8 at deepseek-flash off-peak prices).
 
 ### Degraded images, same 8 tables
 
+Agent rows show run 1 / run 2; the other rows were identical in both runs.
+
 | Method | mild | hard | total |
 |---|---|---|---|
 | Fixed workflow: read once, compute | 6/8 | 6/8 | 12/16 |
-| Agent v1 (checks shape, may re-read) | 7/8 | 6/8 | 13/16 |
+| Agent v1 (checks shape, may re-read) | 7/8 / 8/8 | 6/8 / 6/8 | 13/16 / 14/16 |
 | Scripted retry with checksum (v2) | 5/8 | 6/8 | 11/16 |
-| Agent v2 with checksum | 5/8 | 7/8 | 12/16 |
+| Agent v2 with checksum | 5/8 / 6/8 | 7/8 / 6/8 | 12/16 / 12/16 |
 
-Cost: agent v1 0.022 USD, agent v2 0.052 USD for 16 questions each (more re-reads cost more).
+Cost: agent v1 about 0.022 USD, agent v2 0.04-0.05 USD for 16 questions each (more re-reads cost more).
 
 ### Reader diagnostic: is the first read of the table exactly right? (8 images per level)
 
@@ -74,10 +82,12 @@ A = read the original; B = read a 2x upscale; C = read original, 2x and 3x, use 
 
 ## What I found
 
-1. **Replacing the fixed pipeline with an agent loop works on clean images** (8/8), at under 0.001 USD per question.
-2. **On degraded images the agent is not clearly better than the fixed workflow** (13/16 vs 12/16, one question). The first read is identical in both
-   (Qwen is deterministic), so the agent can only win through a re-read that changes the table. The one clear example is a mild image where the
-   fixed workflow got no usable table and the agent recovered after 3 reads; in other cases re-reading did not fix the table.
+1. **Replacing the fixed pipeline with an agent loop works on clean images** (8/8 in run 1, 7/8 in run 2), at under 0.001 USD per question,
+   but it did not beat the fixed workflow (8/8 both runs). The agent adds a failure point: the LLM has to pass the table to the solver correctly.
+2. **On degraded images the agent is not clearly better than the fixed workflow** (13/16 and 14/16 vs 12/16, a one-to-two question gap that
+   changed between runs). The first read is identical in both (Qwen is deterministic), so the agent can only win through a re-read that changes the table.
+   The clear example is a mild image (Q8) where the fixed and scripted versions got no usable table and the agent recovered after several reads;
+   in other cases re-reading did not fix the table (for example mild Q4 stayed wrong, and Q2 was wrong for every method).
 3. **A checksum did not help.** Reading the `Tot.` column made the reader worse (first-read accuracy dropped), and re-reading with a
    text hint rarely fixed a wrong table. The scripted retry and the agent behaved alike (11/16 vs 12/16), so I cannot attribute any gain to the
    agent's own decisions. Caveat: the code assumes `Tot.` is the last number in each row, so part of the drop may come from that parsing assumption.
@@ -90,6 +100,7 @@ A = read the original; B = read a 2x upscale; C = read original, 2x and 3x, use 
 7. **Answer accuracy overstates reading quality.** Several answers were correct even though the table was misread (for example 9 correct answers
    but only 7 exactly-right tables on the hard fresh set).
 8. One agent re-read seen on a clean image in an early run did not reproduce when the same question was re-run, so it is not counted as evidence of self-correction.
+9. **Reproducibility.** Re-running the full notebook in a new session reproduced every Qwen-only number exactly; only the DeepSeek-driven results moved.
 
 ## Limitations
 
@@ -98,25 +109,16 @@ A = read the original; B = read a 2x upscale; C = read original, 2x and 3x, use 
 - One reader model (Qwen2.5-VL-3B, 4-bit) and one brain model (DeepSeek flash).
 - The first four experiments reuse the same 8 tables, so methods were partly tuned while looking at them; only the last experiment is a held-out set.
 - The agent's loop is simple (two tools, no memory, no planning beyond tool choice).
+- The brain (DeepSeek) is a text-only model that never sees the image; it only sees Qwen's text output. This is a modular design with the VLM as a perception tool, not an end-to-end multimodal agent.
+- Missing control: a fixed workflow that retries when the read cannot be parsed. The agent's one clear gain (recovering from unparseable reads) may be reproducible without an LLM.
 
 ## Next steps
 
+- Find out why the agent lost Q7 on a clean image: print the arguments of each `compute_totals` call and compare with the true table. If the model mis-copied numbers, pass the table **by reference** (a `table_id`) so the LLM never retypes it.
+- Add the retry-on-parse-failure control above to see whether the LLM is needed for that gain.
 - Make the agent **abstain or ask for a better image** when views disagree, instead of answering, and measure coverage vs accuracy.
 - Give the agent tools that provide new information to the reader (crop and zoom on a row, a second reader model) rather than text hints.
 - Test on real screenshots, and repeat each agent run several times to measure variance.
-
-## Result files
-
-| File in `results/` | Experiment | Name when re-running the notebook |
-|---|---|---|
-| `agent_results.json` | Agent on clean images | `exp1_clean.json` |
-| `robust_results.json` | Degraded images: fixed workflow vs agent v1 | `exp2_degraded.json` |
-| `v2_results.json` | Checksum: scripted retry vs agent v2 | `exp3_checksum.json` |
-| `diag_results.json` | Reader diagnostic (Tot. column, 2x upscale) | `exp4_diagnostic.json` |
-| `fresh_results.json` | Multi-view consistency on a fresh test set | `exp5_fresh.json` |
-
-The files in `results/` come from the original runs. Their fields are slightly different from the re-runnable notebook
-(for example, the first agent run did not record the fixed-workflow baseline on clean images).
 
 ## Reproduce
 
