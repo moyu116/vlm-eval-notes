@@ -105,6 +105,19 @@ A = read the original; B = read a 2x upscale; C = read original, 2x and 3x, use 
 - Give the agent tools that provide new information to the reader (crop and zoom on a row, a second reader model) rather than text hints.
 - Test on real screenshots, and repeat each agent run several times to measure variance.
 
+## Result files
+
+| File in `results/` | Experiment | Name when re-running the notebook |
+|---|---|---|
+| `agent_results.json` | Agent on clean images | `exp1_clean.json` |
+| `robust_results.json` | Degraded images: fixed workflow vs agent v1 | `exp2_degraded.json` |
+| `v2_results.json` | Checksum: scripted retry vs agent v2 | `exp3_checksum.json` |
+| `diag_results.json` | Reader diagnostic (Tot. column, 2x upscale) | `exp4_diagnostic.json` |
+| `fresh_results.json` | Multi-view consistency on a fresh test set | `exp5_fresh.json` |
+
+The files in `results/` come from the original runs. Their fields are slightly different from the re-runnable notebook
+(for example, the first agent run did not record the fixed-workflow baseline on clean images).
+
 ## Reproduce
 
 1. Open the notebook in Colab with a **T4 GPU** runtime.
