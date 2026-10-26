@@ -65,4 +65,4 @@ e.g. Q2: 4 songs remain, 5 judges, so at most 4 x 5 = 20.
 - Synthetic tables are clean and rendered by matplotlib; real slides or
   photos would be harder.
 
-Next: compare against a larger VLM, and test noisier table images.
+Next: make the agent abstain when views disagree, and test on real screenshots.
