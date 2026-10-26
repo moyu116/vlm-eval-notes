@@ -1,3 +1,11 @@
+## Follow-up: agent experiments
+
+[`agent/`](agent/) turns the fixed "VLM reads table, Python computes" pipeline into an agent loop (DeepSeek as the
+brain, Qwen2.5-VL as the table reader, a Python solver as a tool) and stress-tests it on degraded images.
+Main finding: on clean tables the agent reaches 8/8, but on degraded images it is not clearly better than the
+fixed workflow; the bottleneck is visual reading, not planning. Details, negative results and limitations are in
+[`agent/README.md`](agent/README.md).
+
 # vlm-eval-notes
 
 Evaluating Qwen2.5-VL-3B on table reading and multi-step reasoning: pure VLM (0/8) vs VLM + Python tool (8/8)
