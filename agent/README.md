@@ -41,8 +41,10 @@ both runs are reported where they differ.
 | Fixed workflow: read once, compute | 8 / 8 (both runs) |
 | Agent loop (DeepSeek + Qwen reader + solver) | 8 / 8 (run 1), 7 / 8 (run 2) |
 
-In run 2 the agent got Q7 wrong (11) while the fixed workflow, with the same Qwen read, got it right (14). I suspect DeepSeek mis-copied the table
-when passing it to `compute_totals`, but I have not verified this yet (see Next steps).
+In run 2 the agent got Q7 wrong (11) while the fixed workflow got it right (14). I first suspected DeepSeek mis-copied the table when passing it to
+`compute_totals`, and tested this: with the true tables as the reader output (no Qwen), the agent passed the table to the solver correctly in 24 of 24 runs
+(8 tables x 3 runs) and answered all 24 correctly. So copying errors are not a likely cause (at most a small rate, with only 24 trials).
+The cause of the Q7 miss is unexplained; one remaining candidate is that the agent re-read the image with a hint that changed Qwen's output, but I did not save that run's call log.
 
 Agent cost: about 0.0009 USD per question (about 2,700 input and 770 output tokens on average; 0.0069 USD for all 8 at deepseek-flash off-peak prices).
 
@@ -83,7 +85,7 @@ A = read the original; B = read a 2x upscale; C = read original, 2x and 3x, use 
 ## What I found
 
 1. **Replacing the fixed pipeline with an agent loop works on clean images** (8/8 in run 1, 7/8 in run 2), at under 0.001 USD per question,
-   but it did not beat the fixed workflow (8/8 both runs). The agent adds a failure point: the LLM has to pass the table to the solver correctly.
+   but it did not beat the fixed workflow (8/8 both runs). One miss in 8 is within run-to-run noise (the agent is sampled), and I could not trace its cause.
 2. **On degraded images the agent is not clearly better than the fixed workflow** (13/16 and 14/16 vs 12/16, a one-to-two question gap that
    changed between runs). The first read is identical in both (Qwen is deterministic), so the agent can only win through a re-read that changes the table.
    The clear example is a mild image (Q8) where the fixed and scripted versions got no usable table and the agent recovered after several reads;
@@ -114,7 +116,7 @@ A = read the original; B = read a 2x upscale; C = read original, 2x and 3x, use 
 
 ## Next steps
 
-- Find out why the agent lost Q7 on a clean image: print the arguments of each `compute_totals` call and compare with the true table. If the model mis-copied numbers, pass the table **by reference** (a `table_id`) so the LLM never retypes it.
+- Save the full tool-call log of every agent run (reads, hints, solver inputs) so that a single miss like clean-image Q7 can be traced afterwards; copying tables to the solver was ruled out as a common cause (24/24 correct).
 - Add the retry-on-parse-failure control above to see whether the LLM is needed for that gain.
 - Make the agent **abstain or ask for a better image** when views disagree, instead of answering, and measure coverage vs accuracy.
 - Give the agent tools that provide new information to the reader (crop and zoom on a row, a second reader model) rather than text hints.
