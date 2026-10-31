@@ -148,7 +148,7 @@ Nothing in the rule-based controls reproduced the agent's correct Q8 answer (14)
 - Small samples (8 tables x 2 levels; 12 tables x 2 levels), single runs; differences of one or two questions are within noise.
 - Synthetic, cleanly drawn tables with artificial degradation, not real screenshots or photos.
 - One reader model (Qwen2.5-VL-3B, 4-bit) and one brain model (DeepSeek flash).
-- The first four experiments reuse the same 8 tables, so methods were partly tuned while looking at them; only the last experiment is a held-out set.
+- The first four experiments reuse the same 8 tables, so methods were partly tuned while looking at them; only experiments 5 and 7 use a held-out set (seed 123).
 - The agent's loop is simple (two tools, no memory, no planning beyond tool choice).
 - The brain (DeepSeek) is a text-only model that never sees the image; it only sees Qwen's text output. This is a modular design with the VLM as a perception tool, not an end-to-end multimodal agent.
 - The rule-based retry controls used hints written after seeing the failures on these tables, and were run only on the questions where the first read failed.
