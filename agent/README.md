@@ -82,14 +82,46 @@ A = read the original; B = read a 2x upscale; C = read original, 2x and 3x, use 
 | yes | 21 | 19 |
 | no | 3 | 1 |
 
+### Permutation check on the fresh set (Qwen only, no LLM; 12 new tables x 2 levels)
+
+Each judge gives every song a distinct score, so every judge's column must be a permutation of 1..n. The check validates each read against this,
+fills in a single missing value when it is uniquely determined, and otherwise re-reads (up to 3 reads) with a hint that states the number of song rows and
+which judges' columns are inconsistent. Methods were fixed before running; the set is the held-out one used above (same A as in the multi-view experiment).
+A = read once; P0 = check and repair the first read only; P = check, repair and targeted re-read.
+
+| | table exactly right (A / P0 / P) | answer correct (A / P0 / P) | P passes the check |
+|---|---|---|---|
+| mild | 11 / 11 / 12 | 11 / 11 / 12 | 12 of 12 |
+| hard | 7 / 7 / 7 | 9 / 9 / 9 | 8 of 12 |
+
+As an error flag on the first read (24 images): 6 first reads were wrong, the check flagged 5 of them with no false alarms; 18 of the 19 reads that passed were exactly right.
+If the pipeline abstains whenever the check fails, it answers 20 of 24 questions and gets 19 right; answering everything gives 21/24, and reading once gives 20/24.
+
+### Scripted-retry control (Qwen only, no LLM)
+
+Can the agent's one clear gain (mild Q8) be reproduced by plain code? In mild Q4 and Q8 the first read parses as valid JSON, but the row keys are judge labels
+(`J1`..`J7`) instead of song names (in Q8 the first row is even repeated 7 times), so the solver rejects the table and the fixed workflow returns no answer.
+
+| Control | mild | hard |
+|---|---|---|
+| Fixed workflow (read once) | 6/8 | 6/8 |
+| Retry when JSON fails to parse or row lengths differ (up to 3 reads) | 6/8, never triggered | 6/8, never triggered |
+| Retry when the solver fails, generic hint (up to 3 reads) | Q4, Q8 still no answer after 3 reads | - |
+| Same, hint states the number of song rows (taken from the question) | Q4: structure fixed, one digit wrong (answer 14, truth 13); Q8: structure fixed, last value of row D missing, solver still fails | - |
+
+Nothing in the rule-based controls reproduced the agent's correct Q8 answer (14). The hints were written after looking at these two failures, so this is a lower bound on what rules can do, not a fair ceiling.
+
 ## What I found
 
 1. **Replacing the fixed pipeline with an agent loop works on clean images** (8/8 in run 1, 7/8 in run 2), at under 0.001 USD per question,
    but it did not beat the fixed workflow (8/8 both runs). One miss in 8 is within run-to-run noise (the agent is sampled), and I could not trace its cause.
 2. **On degraded images the agent is not clearly better than the fixed workflow** (13/16 and 14/16 vs 12/16, a one-to-two question gap that
    changed between runs). The first read is identical in both (Qwen is deterministic), so the agent can only win through a re-read that changes the table.
-   The clear example is a mild image (Q8) where the fixed and scripted versions got no usable table and the agent recovered after several reads;
-   in other cases re-reading did not fix the table (for example mild Q4 stayed wrong, and Q2 was wrong for every method).
+   The clear example is mild Q8: the first read had judge labels as row names, so the fixed and scripted versions returned no answer, and the agent
+   recovered and answered 14 after several reads. A rule-based retry with a shape hint fixed the structure but left the table incomplete (one value missing) and did not
+   reproduce this, so I cannot say how the agent got there: the agent's call log was not saved. One possibility, not verified, is that it filled in the missing value
+   by reasoning (each judge's scores are a permutation of 1..n). In other cases re-reading did not fix the table (mild Q4 stayed wrong, and Q2 was wrong for every method).
+   This is one question.
 3. **A checksum did not help.** Reading the `Tot.` column made the reader worse (first-read accuracy dropped), and re-reading with a
    text hint rarely fixed a wrong table. The scripted retry and the agent behaved alike (11/16 vs 12/16), so I cannot attribute any gain to the
    agent's own decisions. Caveat: the code assumes `Tot.` is the last number in each row, so part of the drop may come from that parsing assumption.
@@ -104,6 +136,13 @@ A = read the original; B = read a 2x upscale; C = read original, 2x and 3x, use 
 8. One agent re-read seen on a clean image in an early run did not reproduce when the same question was re-run, so it is not counted as evidence of self-correction.
 9. **Reproducibility.** Re-running the full notebook in a new session reproduced every Qwen-only number exactly; only the DeepSeek-driven results moved.
 
+10. **A free consistency check flagged most misreads, but re-reading rarely fixed them.** On the fresh set the permutation check flagged 5 of the 6 wrong first reads
+    with no false alarms. Looking at the logged reads: the one miss (hard f2) had its last judge column dropped (4 judges instead of 5), and every remaining column was a valid permutation,
+    so a per-column check cannot see it. The one image fixed by re-reading (mild f5) was a transposed read (judge labels as row names), fixed by the hint stating the number of song rows, not by a
+    column-specific hint. On the 4 flagged hard images, re-reading did not help: in 3 of them Qwen returned exactly the same table despite the new hint, and in the fourth the re-read dropped a column.
+    So on hard images the check works as an "I am not sure" signal rather than a fix. The single-missing-value repair never triggered on this set, so it has only been tested on simulated reads.
+    This is 24 images, one run (Qwen is deterministic), and the check exploits this task's structure (distinct scores per judge); real tables may not offer such a constraint.
+
 ## Limitations
 
 - Small samples (8 tables x 2 levels; 12 tables x 2 levels), single runs; differences of one or two questions are within noise.
@@ -112,15 +151,24 @@ A = read the original; B = read a 2x upscale; C = read original, 2x and 3x, use 
 - The first four experiments reuse the same 8 tables, so methods were partly tuned while looking at them; only the last experiment is a held-out set.
 - The agent's loop is simple (two tools, no memory, no planning beyond tool choice).
 - The brain (DeepSeek) is a text-only model that never sees the image; it only sees Qwen's text output. This is a modular design with the VLM as a perception tool, not an end-to-end multimodal agent.
-- Missing control: a fixed workflow that retries when the read cannot be parsed. The agent's one clear gain (recovering from unparseable reads) may be reproducible without an LLM.
+- The rule-based retry controls used hints written after seeing the failures on these tables, and were run only on the questions where the first read failed.
+- The permutation check depends on this task's structure, was evaluated on 24 images with one missed error, and its repair step was never exercised on a real read.
 
 ## Next steps
 
 - Save the full tool-call log of every agent run (reads, hints, solver inputs) so that a single miss like clean-image Q7 can be traced afterwards; copying tables to the solver was ruled out as a common cause (24/24 correct).
-- Add the retry-on-parse-failure control above to see whether the LLM is needed for that gain.
+- Run the permutation check on the original 8 tables to compare it with the agent on the same questions, and feed its warnings to the agent as a tool result.
+- Test the same idea on tables without a built-in constraint (for example row totals or units) to see how far it generalises.
 - Make the agent **abstain or ask for a better image** when views disagree, instead of answering, and measure coverage vs accuracy.
 - Give the agent tools that provide new information to the reader (crop and zoom on a row, a second reader model) rather than text hints.
 - Test on real screenshots, and repeat each agent run several times to measure variance.
+
+## Code and raw results
+
+- Experiments 1-5: [`vlm_table_agent.ipynb`](vlm_table_agent.ipynb).
+- Experiment 6 (scripted-retry control): [`exp6_scripted_retry_control.py`](exp6_scripted_retry_control.py), run after the first four code cells of the notebook.
+- Experiment 7 (permutation check): [`exp7_permutation_check.py`](exp7_permutation_check.py), run the same way.
+- Raw per-question results (including every read and hint for experiments 6-7): `results/`.
 
 ## Reproduce
 
