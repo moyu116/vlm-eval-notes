@@ -61,8 +61,13 @@ e.g. Q2: 4 songs remain, 5 judges, so at most 4 x 5 = 20.
 
 [`agent/`](agent/) turns the fixed "VLM reads table, Python computes" pipeline into an agent loop (DeepSeek as the
 brain, Qwen2.5-VL as the table reader, a Python solver as a tool) and stress-tests it on degraded images.
-Main finding: on clean tables the agent reaches 8/8, but on degraded images it is not clearly better than the
-fixed workflow; the bottleneck is visual reading, not planning. Details, negative results and limitations are in
-[`agent/README.md`](agent/README.md).
 
-Next: make the agent abstain when views disagree, and test on real screenshots.
+- On clean tables the agent scores 8/8 and 7/8 in two runs, and the fixed workflow 8/8 both times, so the agent
+  adds nothing there. On degraded images it is not clearly better than the fixed workflow; the bottleneck is visual
+  reading, not planning.
+- A rule-based check that every judge's scores form a permutation of 1..n flagged 5 of the 6 wrong table reads on a
+  held-out set with no false alarms, but re-reading with a hint rarely fixed them: the 3B reader mostly ignored the hint.
+
+Details, negative results and limitations are in [`agent/README.md`](agent/README.md).
+
+Next: crop and zoom tools that change what the reader sees, and tests on real screenshots.
